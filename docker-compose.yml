@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: buguser
+      POSTGRES_PASSWORD: bugpassword
+      POSTGRES_DB: bugtracker
+    ports:
+      - "5432:5432"
+
+  mongo_db:
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD: mongopassword
+    ports:
+      - "27017:27017"
+
+  redis_queue:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  collector_api:
+    build: ./Server
+    ports:
+      - "5000:8080"  # adjust to your app's internal port
+    environment:
+      - ConnectionStrings__Redis=redis_queue:6379
+    depends_on:
+      - redis_queue
+
+  ai_worker:
+    build: ./AiWorker
+    container_name: bugtracker_ai_worker
+    environment:
+      - REDIS_HOST=redis_queue
+      - DB_HOST=postgres_db
+      - DB_NAME=bugtracker
+      - DB_USER=buguser
+      - DB_PASS=bugpassword
+      - GEMINI_API_KEY=AIzaSyA0FlXMC8tr6G_1cbSUsLu7XF4raqtByss
+    depends_on:
+      - redis_queue
+      - postgres_db
+    restart: unless-stopped
